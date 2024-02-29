@@ -43,14 +43,11 @@ contract DumpEX {
     address public pendingAdmin;
     IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // TODO: Check mainnet address
     address BlastPointsAddressTestnet = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;   // TODO: Check mainnet address
-    address _pointsOperator;
 
     constructor() {
         admin = msg.sender;
-        _pointsOperator = msg.sender;
         BLAST.configureAutomaticYield();
         BLAST.configureClaimableGas(); 
-        IBlastPoints(BlastPointsAddressTestnet).configurePointsOperator(_pointsOperator);
     }
 
     //////////////////////
@@ -389,6 +386,6 @@ contract DumpEX {
     /// @dev BLAST - Method related to distributing Blast points
     function setNewPointsOperator(address newPointsOperator) external {
         if (msg.sender != admin) {revert OnlyAdmin(); }
-        _pointsOperator = newPointsOperator;
+        IBlastPoints(BlastPointsAddressTestnet).configurePointsOperator(newPointsOperator);
     }
 }
