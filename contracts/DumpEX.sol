@@ -23,8 +23,8 @@ contract DumpEX {
 
     event TokenSold(address indexed seller, address tokenAddress, uint256 amount, uint256 price);   // price = total price
     event TokenBought(address indexed buyer, address tokenAddress, uint256 amount, uint256 price);  // price = total price
-    event NFTSold(address indexed seller, address nftAddress, uint256 tokenId, uint256 price);      // price = total price
-    event NFTBought(address indexed buyer, address nftAddress, uint256 tokenId, uint256 price);     // price = total price
+    event NftSold(address indexed seller, address nftAddress, uint256 tokenId, uint256 price);      // price = total price
+    event NftBought(address indexed buyer, address nftAddress, uint256 tokenId, uint256 price);     // price = total price
 
     // Please note that block numbers are used as the timestamping mechanism
     struct Deal { 
@@ -67,7 +67,7 @@ contract DumpEX {
     /// @notice calculates the protocol fee for a given trade - larger of protocolFeePercentage or protocolFeeMinimimum
     /// @param payableAmount the amount that is to be paid for the asset(s)
     function _getProtocolFee(uint256 payableAmount) private pure returns (uint256) {
-        uint256 protocolFeeMinimum = 100000000000000; //wei
+        uint256 protocolFeeMinimum = 100000000000000; // wei --> 0.0001 ETH
         uint256 protocolFeePercentage = 3;
         if (payableAmount * protocolFeePercentage > protocolFeeMinimum * 100) {     // percentage amount is higher
             return payableAmount * protocolFeePercentage / 100;
@@ -91,14 +91,14 @@ contract DumpEX {
     /// @notice Internal method that returns the price for which a given NFT can be bought from inventory
     /// @param nftAddress address of the nft collection
     function _getNftBuyPrice(address nftAddress) private view returns(uint) {
-        if (lastPurchaseNfts[nftAddress].timestamp > 0 ) {  // NFT has been bought before
+        if (lastPurchaseNfts[nftAddress].timestamp == 0) { // NFT has never been bought
+            uint blocksSinceLastAction = block.number - lastSaleNfts[nftAddress].timestamp;
+            return _calculateDecay(1500 * 10e17, blocksSinceLastAction, 10**15);  // Use starting price of 1500 ETH, decays 0.001ETH per block
+        } else {  // NFT has been bought before
             uint blocksSinceLastAction = block.number - lastPurchaseNfts[nftAddress].timestamp;
             uint decayedPrice = _calculateDecay(lastPurchaseNfts[nftAddress].price + 10e17, blocksSinceLastAction, 10**15);  // Add 1 ETH to price, decays 0.001ETH per block
             return max(decayedPrice, 1);
-        } else {    // NFT has never been bought
-            uint blocksSinceLastAction = block.number - lastSaleNfts[nftAddress].timestamp;
-            return _calculateDecay(1500 * 10e17, blocksSinceLastAction, 10**15);  // Use starting price of 1500 ETH, decays 0.001ETH per block
-        }
+        } 
     }
 
     /// @notice Internal method that returns the price the contract is willing to pay for a given NFT
@@ -150,7 +150,7 @@ contract DumpEX {
     /// @dev There must be an existing approval and some wei in the contract. Payment is sent to caller.
     /// @param nftAddress the address of the NFT you are selling
     /// @param tokenId the ID of the NFT you are selling
-    function sellNFT(address nftAddress, uint256 tokenId) external {
+    function sellNft(address nftAddress, uint256 tokenId) external {
         IERC721 nft = IERC721(nftAddress);
 
         // requirements
@@ -160,61 +160,60 @@ contract DumpEX {
         nft.transferFrom(msg.sender, address(this), tokenId);
 
         // get price
-        uint sellPrice = _getNftSellPrice(nftAddress);
-        if (address(this).balance < sellPrice) { revert NotEnoughEther(); }
+        uint price = _getNftSellPrice(nftAddress);
+        if (address(this).balance < price) { revert NotEnoughEther(); }
 
         // transfer the payment
-        (bool success, ) = payable(msg.sender).call{value: sellPrice}("");
+        (bool success, ) = payable(msg.sender).call{value: price}("");
         require(success, "Transfer failed.");
 
         // update last NFT sale data
-        lastSaleNfts[nftAddress] = Deal(block.number, sellPrice);
+        lastSaleNfts[nftAddress] = Deal(block.number, price);
 
-        emit NFTSold(msg.sender, nftAddress, tokenId, sellPrice);
+        emit NftSold(msg.sender, nftAddress, tokenId, price);
     }
 
     /// @notice Sell a collection of NFTs
     /// @dev There must be an existing approval and some wei in the contract. Payment is sent to caller.
     /// @param nftAddress the address of the NFT you are selling
     /// @param tokenIds the IDs of the NFTs you are selling
-    function multisellNFT(address nftAddress, uint256[] calldata tokenIds) external {
+    function multisellNft(address nftAddress, uint256[] calldata tokenIds) external {
         IERC721 nft = IERC721(nftAddress);
 
         // get current price of the NFT
         uint itemsToSell = tokenIds.length;
-        uint sellPrice = _getNftSellPrice(nftAddress);
+        uint price = _getNftSellPrice(nftAddress);
 
         // requirements
-        if (address(this).balance < sellPrice) { revert NotEnoughEther(); }
+        if (address(this).balance < price) { revert NotEnoughEther(); }
 
         // transfer the NFT to the pool
         for (uint256 i = 0; i < itemsToSell; ++i) {
             if (nft.getApproved(tokenIds[i]) != address(this)) { revert ("Not approved"); }
             nft.transferFrom(msg.sender, address(this), tokenIds[i]);
-            emit NFTSold(msg.sender, nftAddress, tokenIds[i], sellPrice);
+            emit NftSold(msg.sender, nftAddress, tokenIds[i], price);
         }
 
         // transfer the payment
-        (bool success, ) = payable(msg.sender).call{value: sellPrice}("");
+        (bool success, ) = payable(msg.sender).call{value: price}("");
         require(success, "Transfer failed.");
 
         // update last NFT sale data
-        lastSaleNfts[nftAddress] = Deal(block.number, sellPrice);
+        lastSaleNfts[nftAddress] = Deal(block.number, price);
     }
 
     /// @notice Buy an NFT at a price determined by a Dutch auction
     /// @param nftAddress the address of the NFT you are buying
     /// @param tokenId the ID of the NFT you are buying
-    function buyNFT(address nftAddress, uint256 tokenId) external payable {
+    function buyNft(address nftAddress, uint256 tokenId) external payable {
         IERC721 nft = IERC721(nftAddress);
 
         // get current price of the NFT
         uint buyPrice = _getNftBuyPrice(nftAddress);
         uint protocolFee = _getProtocolFee(buyPrice);
-        uint netPrice = buyPrice + protocolFee;
 
         // requirements
-        if (msg.value < netPrice) { revert Payable(netPrice); }
+        if (msg.value < buyPrice + protocolFee) { revert Payable(buyPrice + protocolFee); }
 
         // transfer NFT to buyer
         nft.safeTransferFrom(address(this), msg.sender, tokenId);
@@ -225,28 +224,27 @@ contract DumpEX {
         // update NFT purchase data
         lastPurchaseNfts[nftAddress] = Deal(block.number, buyPrice);
 
-        emit NFTBought(msg.sender, nftAddress, tokenId, buyPrice);
+        emit NftBought(msg.sender, nftAddress, tokenId, buyPrice);
     }
 
     /// @notice Buy multiple NFTs from a single collection without resetting the price ("sweep inventory")
     /// @param nftAddress the address of the NFT collection you are buying
     /// @param tokenIds the IDs of the NFT you are buying
-    function multibuyNFT(address nftAddress, uint256[] calldata tokenIds) external payable {
+    function multibuyNft(address nftAddress, uint256[] calldata tokenIds) external payable {
         IERC721 nft = IERC721(nftAddress);
 
         // get current price of the NFT
         uint itemsToBuy = tokenIds.length;
         uint buyPrice = _getNftBuyPrice(nftAddress) * itemsToBuy;
         uint protocolFee = _getProtocolFee(buyPrice);
-        uint netPrice = buyPrice + protocolFee;
 
         // requirements
-        if (msg.value < netPrice) { revert Payable(netPrice); }
+        if (msg.value < buyPrice + protocolFee) { revert Payable(buyPrice + protocolFee); }
 
         // transfer NFTs to buyer
         for (uint256 i = 0; i < itemsToBuy; ++i) {
             nft.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
-            emit NFTBought(msg.sender, nftAddress, tokenIds[i], buyPrice);
+            emit NftBought(msg.sender, nftAddress, tokenIds[i], buyPrice);
         }
 
         // transfer protocol fee to current admin

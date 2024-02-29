@@ -130,7 +130,7 @@ describe("DumpEX Contract Tests", function () {
             const tokenId = 1;
             await mockERC721.mint(user1.address, tokenId);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), tokenId);
-            await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), tokenId);
+            await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), tokenId);
         
             const nftPrice = await dumpEx.connect(user1).getNftBuyPrice(mockERC721.getAddress());
             expect(nftPrice).to.equal(ethers.parseEther("1500")); // Starting price for NFTs is 1500 ETH
@@ -143,7 +143,7 @@ describe("DumpEX Contract Tests", function () {
             const tokenId = 2;
             await mockERC721.mint(user1.address, tokenId);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), tokenId);
-            await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), tokenId);
+            await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), tokenId);
         
             await mine(1);
         
@@ -239,8 +239,8 @@ describe("DumpEX Contract Tests", function () {
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), tokenId); // user1 approves DumpEX contract
             
             // Ensure user1 sells the NFT to the contract
-            await expect(dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), tokenId))
-                .to.emit(dumpEx, 'NFTSold')
+            await expect(dumpEx.connect(user1).sellNft(mockERC721.getAddress(), tokenId))
+                .to.emit(dumpEx, 'NftSold')
                 .withArgs(user1.address, mockERC721.getAddress(), tokenId, 1);
             
             // Verify ownership transfer
@@ -263,8 +263,8 @@ describe("DumpEX Contract Tests", function () {
             const adjustedPrice = nftPrice - ethers.parseEther("0.001"); // for some reason 1 block passes
         
             // User2 buys the NFT from the contract
-            await expect(dumpEx.connect(user2).buyNFT(mockERC721.getAddress(), tokenId, { value: nftNetPrice }))
-                .to.emit(dumpEx, 'NFTBought')
+            await expect(dumpEx.connect(user2).buyNft(mockERC721.getAddress(), tokenId, { value: nftNetPrice }))
+                .to.emit(dumpEx, 'NftBought')
                 .withArgs(user2.address, mockERC721.getAddress(), tokenId, adjustedPrice);
         
             // Check ownership of the NFT is transferred to user2
@@ -285,7 +285,7 @@ describe("DumpEX Contract Tests", function () {
         
             // User2 buys the NFT from the contract
             const nftNetPrice = await dumpEx.connect(user2).getNftNetBuyPrice(mockERC721.getAddress());
-            await dumpEx.connect(user2).buyNFT(mockERC721.getAddress(), tokenId, { value: nftNetPrice })
+            await dumpEx.connect(user2).buyNft(mockERC721.getAddress(), tokenId, { value: nftNetPrice })
 
             const priceAfterBuy = await dumpEx.connect(user2).getNftBuyPrice(mockERC721.getAddress());
 
@@ -303,7 +303,7 @@ describe("DumpEX Contract Tests", function () {
             const prices = await Promise.all(tokenIds.map(id => dumpEx.connect(user1).getNftNetBuyPrice(mockERC721.getAddress())));
             const totalCost = prices.reduce((acc, price) => acc + price, 0n);
 
-            await dumpEx.connect(user1).multibuyNFT(mockERC721.getAddress(), tokenIds, { value: totalCost });
+            await dumpEx.connect(user1).multibuyNft(mockERC721.getAddress(), tokenIds, { value: totalCost });
     
             // Verify each NFT ownership
             await Promise.all(tokenIds.map(async (id) => {
@@ -399,7 +399,7 @@ describe("DumpEX Contract Tests", function () {
             await edgeERC721.connect(user1).approve(dumpEx.getAddress(), tokenId);
 
             // User1 sells tokens to the contract
-            await dumpEx.connect(user1).sellNFT(edgeERC721.getAddress(), tokenId);
+            await dumpEx.connect(user1).sellNft(edgeERC721.getAddress(), tokenId);
 
             await mine(200000000);
             const ultimatePrice = await dumpEx.connect(user1).getNftBuyPrice(edgeERC721.getAddress());
@@ -434,8 +434,8 @@ describe("DumpEX Contract Tests", function () {
             await otherERC721.connect(user1).approve(dumpEx.getAddress(), 2);
         
             // Attempt to sell OtherERC20 tokens to DumpEx, expecting 1 wei apyment
-            await expect(dumpEx.connect(user1).sellNFT(otherERC721.getAddress(), 2))
-                .to.emit(dumpEx, 'NFTSold')
+            await expect(dumpEx.connect(user1).sellNft(otherERC721.getAddress(), 2))
+                .to.emit(dumpEx, 'NftSold')
                 .withArgs(user1.address, otherERC721.getAddress(), 2, 1);
         });
 
@@ -514,20 +514,20 @@ describe("DumpEX Contract Tests", function () {
             // reset pricing
             await mockERC721.mint(user1.address, 514);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), 514);
-            await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), 514);
+            await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), 514);
 
             await mockERC721.mint(user1.address, 518);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), 518);
     
             const sellPrice = await dumpEx.getNftSellPrice(mockERC721.getAddress());
-            await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), 518);
+            await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), 518);
     
             const buyPrice = await dumpEx.getNftNetBuyPrice(mockERC721.getAddress());
     
             expect(buyPrice).to.be.at.least(sellPrice);
         });
 
-        it("multibuyNFT does not allow extracting value", async function () {
+        it("multibuyNft does not allow extracting value", async function () {
             const tokenIdsToBuy = [902, 903, 904];
             const pricesBefore = await Promise.all(tokenIdsToBuy.map(async (id) => {
                 mockERC721.mint(dumpEx.getAddress(), id);
@@ -537,14 +537,14 @@ describe("DumpEX Contract Tests", function () {
             const totalCost = pricesBefore.reduce((acc, price) => acc + price, 0n);
             const ethBefore = await ethers.provider.getBalance(dumpEx.getAddress());
         
-            // Assume multiBuyNFT is the function to buy multiple NFTs at once
-            await dumpEx.connect(user1).multibuyNFT(mockERC721.getAddress(), tokenIdsToBuy, { value: totalCost });
+            // Assume multibuyNft is the function to buy multiple NFTs at once
+            await dumpEx.connect(user1).multibuyNft(mockERC721.getAddress(), tokenIdsToBuy, { value: totalCost });
         
             const ethAfter = await ethers.provider.getBalance(dumpEx.getAddress());
             expect(ethAfter - ethBefore).to.be.above(0n);        
         });
         
-        it("multisellNFT does not allow extracting value", async function () {
+        it("multisellNft does not allow extracting value", async function () {
             const tokenIdsToSell = [422, 423, 424];
             await Promise.all(tokenIdsToSell.map(async (id) => {
                 await mockERC721.mint(user1.address, id);
@@ -554,12 +554,12 @@ describe("DumpEX Contract Tests", function () {
             // Sell one to reset price
             await mockERC721.mint(user1.address, 421);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), 421)
-            await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), 421)
+            await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), 421)
         
             const ethBefore = await ethers.provider.getBalance(dumpEx.getAddress());
         
-            // Assume multiSellNFT is the function to sell multiple NFTs at once
-            await dumpEx.connect(user1).multisellNFT(mockERC721.getAddress(), tokenIdsToSell);
+            // Assume multisellNft is the function to sell multiple NFTs at once
+            await dumpEx.connect(user1).multisellNft(mockERC721.getAddress(), tokenIdsToSell);
         
             const ethAfter = await ethers.provider.getBalance(dumpEx.getAddress());
             expect(ethAfter - ethBefore).to.equal(-1n); // Only one wei is paid
@@ -659,7 +659,7 @@ describe("DumpEX Contract Tests", function () {
             const tokenId = 331;
             await mockERC721.mint(user1.address, tokenId);
             // User1 tries to sell the NFT without approving it
-            await expect(dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), tokenId))
+            await expect(dumpEx.connect(user1).sellNft(mockERC721.getAddress(), tokenId))
                 .to.be.revertedWith("Not approved");
         });
 
@@ -706,7 +706,7 @@ describe("DumpEX Contract Tests", function () {
         
             // User1 buys tokens from the contract
             await expect(
-                dumpEx.connect(user1).buyNFT(mockERC721.getAddress(), dummyNftId, { value: totalCost })
+                dumpEx.connect(user1).buyNft(mockERC721.getAddress(), dummyNftId, { value: totalCost })
             ).to.be.reverted;
         });
     });
@@ -733,13 +733,13 @@ describe("DumpEX Contract Tests", function () {
             const amount = ethers.parseUnits("100", 18);
             await mockERC721.mint(user1.address, 734);
             await mockERC721.connect(user1).approve(dumpEx.getAddress(), 734);
-            const tx = await dumpEx.connect(user1).sellNFT(mockERC721.getAddress(), 734)
+            const tx = await dumpEx.connect(user1).sellNft(mockERC721.getAddress(), 734)
             const receipt = await tx.wait();
             console.log("     ", "Selling NFTs:", receipt.gasUsed);
         })
         it("Buying NFTs", async function() {
             const price = await dumpEx.connect(user1).getNftNetBuyPrice(mockERC721.getAddress());
-            const tx = await dumpEx.connect(user1).buyNFT(mockERC721.getAddress(), 734, { value: price });
+            const tx = await dumpEx.connect(user1).buyNft(mockERC721.getAddress(), 734, { value: price });
             const receipt = await tx.wait();
             console.log("     ", "Buying NFTs:", receipt.gasUsed);
         })
