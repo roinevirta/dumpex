@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "contracts/imports/IBlast.sol";
 import "contracts/imports/IBlastPoints.sol";
 
-
 error NotEnoughEther();
 error Payable(uint weiToPay);
 error OnlyAdmin();
