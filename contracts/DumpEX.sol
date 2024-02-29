@@ -1,13 +1,10 @@
-// TODO: use decimals in token calculation
-// TODO: Super simple UI for day 0 usage + some documentation
-
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-//TODO_ENABLE import "contracts/imports/IBlast.sol";
-//TODO_ENABLE import "contracts/imports/IBlasPoints.sol";
+import "contracts/imports/IBlast.sol";
+import "contracts/imports/IBlastPoints.sol";
 
 
 error NotEnoughEther();
@@ -19,6 +16,7 @@ error OnlyAdmin();
 /// @notice Use this contract to sell NFTs & tokens at a fixed price & to buy them in a Dutch auction
 /// @dev this contract has been modified for Blast such that the contract accrues yield on ETH and gas fees to self-finance its operations
 /// @custom:experimental This is an experimental contract.
+/// @custom:blast This is contract is for the Blast L2.
 contract DumpEX {
 
     event TokenSold(address indexed seller, address tokenAddress, uint256 amount, uint256 price);   // price = total price
@@ -44,15 +42,16 @@ contract DumpEX {
     
     address public admin;
     address public pendingAdmin;
-    //TODO_ENABLE IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // TODO: Check mainnet address
-    //TODO_ENABLE address BlastPointsAddressTestnet = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;   // TODO: Check mainnet address
-    //TODO_ENABLE address _pointsOperator = ; // TODO: Set to hot EOA
+    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // TODO: Check mainnet address
+    address BlastPointsAddressTestnet = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;   // TODO: Check mainnet address
+    address _pointsOperator;
 
     constructor() {
         admin = msg.sender;
-        //TODO_ENABLE BLAST.configureAutomaticYield();
-        //TODO_ENABLE BLAST.configureClaimableGas(); 
-        //TODO_ENABLE IBlastPoints(BlastPointsAddressTestnet).configurePointsOperator(_pointsOperator);
+        _pointsOperator = msg.sender;
+        BLAST.configureAutomaticYield();
+        BLAST.configureClaimableGas(); 
+        IBlastPoints(BlastPointsAddressTestnet).configurePointsOperator(_pointsOperator);
     }
 
     //////////////////////
@@ -97,7 +96,7 @@ contract DumpEX {
         } else {  // NFT has been bought before
             uint blocksSinceLastAction = block.number - lastPurchaseNfts[nftAddress].timestamp;
             uint decayedPrice = _calculateDecay(lastPurchaseNfts[nftAddress].price + 10e17, blocksSinceLastAction, 10**15);  // Add 1 ETH to price, decays 0.001ETH per block
-            return max(decayedPrice, 1);
+            return max(1, decayedPrice);
         } 
     }
 
@@ -123,7 +122,7 @@ contract DumpEX {
             uint grossPrice = lastPurchaseTokens[tokenAddress].price * amount / lastPurchaseTokens[tokenAddress].amount;   // Use prev. buy price to determine price for this lot
             uint priceIncrease = amount / 10e2;    // Add 0.0001 ETH to price per token
             uint decayedPrice = _calculateDecay(grossPrice + priceIncrease, blocksSinceLastAction, 10e11);  // decays 0.000001ETH per block
-            return max(decayedPrice, 1);    // Never sell for less than 1 wei
+            return max(1, decayedPrice);    // Never sell for less than 1 wei
         } 
     }
 
@@ -209,11 +208,11 @@ contract DumpEX {
         IERC721 nft = IERC721(nftAddress);
 
         // get current price of the NFT
-        uint buyPrice = _getNftBuyPrice(nftAddress);
-        uint protocolFee = _getProtocolFee(buyPrice);
+        uint price = _getNftBuyPrice(nftAddress);
+        uint protocolFee = _getProtocolFee(price);
 
         // requirements
-        if (msg.value < buyPrice + protocolFee) { revert Payable(buyPrice + protocolFee); }
+        if (msg.value < price + protocolFee) { revert Payable(price + protocolFee); }
 
         // transfer NFT to buyer
         nft.safeTransferFrom(address(this), msg.sender, tokenId);
@@ -222,9 +221,9 @@ contract DumpEX {
         payable(admin).transfer(protocolFee);
 
         // update NFT purchase data
-        lastPurchaseNfts[nftAddress] = Deal(block.number, buyPrice);
+        lastPurchaseNfts[nftAddress] = Deal(block.number, price);
 
-        emit NftBought(msg.sender, nftAddress, tokenId, buyPrice);
+        emit NftBought(msg.sender, nftAddress, tokenId, price);
     }
 
     /// @notice Buy multiple NFTs from a single collection without resetting the price ("sweep inventory")
@@ -235,23 +234,23 @@ contract DumpEX {
 
         // get current price of the NFT
         uint itemsToBuy = tokenIds.length;
-        uint buyPrice = _getNftBuyPrice(nftAddress) * itemsToBuy;
-        uint protocolFee = _getProtocolFee(buyPrice);
+        uint price = _getNftBuyPrice(nftAddress) * itemsToBuy;
+        uint protocolFee = _getProtocolFee(price);
 
         // requirements
-        if (msg.value < buyPrice + protocolFee) { revert Payable(buyPrice + protocolFee); }
+        if (msg.value < price + protocolFee) { revert Payable(price + protocolFee); }
 
         // transfer NFTs to buyer
         for (uint256 i = 0; i < itemsToBuy; ++i) {
             nft.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
-            emit NftBought(msg.sender, nftAddress, tokenIds[i], buyPrice);
+            emit NftBought(msg.sender, nftAddress, tokenIds[i], price);
         }
 
         // transfer protocol fee to current admin
         payable(admin).transfer(protocolFee);
 
         // update NFT purchase data
-        lastPurchaseNfts[nftAddress] = Deal(block.number, buyPrice);
+        lastPurchaseNfts[nftAddress] = Deal(block.number, price);
     }
 
     /// @notice Get the price to pay for a given NFT
@@ -377,9 +376,20 @@ contract DumpEX {
         admin = pendingAdmin;
     }
 
+    //////////////////////
+    /// BLAST FUNCTIONS //
+    //////////////////////
+
     /// @notice Claim gas back to the contract
-    /// @dev Method for claiming sequencer revenue into the contract for self-financing of operations
-    //TODO_ENABLE function claimMyContractsGas() external {
-    //TODO_ENABLE     BLAST.claimAllGas(address(this), address(this));
-    //TODO_ENABLE }
+    /// @dev BLAST - Method for claiming sequencer revenue into the contract
+    function claimMyContractsGas() external {
+        BLAST.claimAllGas(address(this), address(this));
+    }
+
+    /// @notice Set a new points operator for the contract
+    /// @dev BLAST - Method related to distributing Blast points
+    function setNewPointsOperator(address newPointsOperator) external {
+        if (msg.sender != admin) {revert OnlyAdmin(); }
+        _pointsOperator = newPointsOperator;
+    }
 }
