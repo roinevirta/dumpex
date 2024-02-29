@@ -1,0 +1,7 @@
+{
+  "name": "DumpEx",
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "ethers": "^6.11.1"
+  }
+}
