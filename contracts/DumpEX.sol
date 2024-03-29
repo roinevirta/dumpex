@@ -34,20 +34,20 @@ contract DumpEX {
         uint256 amount;
     }
 
-    mapping(address => Deal) lastSaleNfts;                  // Timestamp + price at which NFT was last sold to contract
-    mapping(address => Deal) lastPurchaseNfts;              // Timestamp + price at which NFT was last bought from contract
-    mapping(address => Deal) lastSaleTokens;                // Timestamp + price at which token was last sold to contract
-    mapping(address => DealWithAmount) lastPurchaseTokens;  // Timestamp + price + amount at which token was last bought from contract
+    mapping(address => Deal) private lastSaleNfts;                  // Timestamp + price at which NFT was last sold to contract
+    mapping(address => Deal) private lastPurchaseNfts;              // Timestamp + price at which NFT was last bought from contract
+    mapping(address => Deal) private lastSaleTokens;                // Timestamp + price at which token was last sold to contract
+    mapping(address => DealWithAmount) private lastPurchaseTokens;  // Timestamp + price + amount at which token was last bought from contract
     
-    address public admin;
+    address public admin = 0xb55d5B59f121E497b2833d658a8093B38d3A7c64;  // Hard coded initial admin wallet
     address public pendingAdmin;
-    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // TODO: Check mainnet address
-    address BlastPointsAddressTestnet = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;   // TODO: Check mainnet address
+    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // Testnet yield contract
+    address BlastPointsAddress = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;            // Testnet blast points address
 
     constructor() {
-        admin = msg.sender;
         BLAST.configureAutomaticYield();
         BLAST.configureClaimableGas(); 
+        IBlastPoints(BlastPointsAddress).configurePointsOperator(0x08CdA959D09137fdce4932ad715a778254E62ea8);
     }
 
     //////////////////////
@@ -380,12 +380,5 @@ contract DumpEX {
     /// @dev BLAST - Method for claiming sequencer revenue into the contract
     function claimMyContractsGas() external {
         BLAST.claimAllGas(address(this), address(this));
-    }
-
-    /// @notice Set a new points operator for the contract
-    /// @dev BLAST - Method related to distributing Blast points
-    function setNewPointsOperator(address newPointsOperator) external {
-        if (msg.sender != admin) {revert OnlyAdmin(); }
-        IBlastPoints(BlastPointsAddressTestnet).configurePointsOperator(newPointsOperator);
     }
 }

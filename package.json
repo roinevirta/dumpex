@@ -2,6 +2,7 @@
   "name": "dumpex-v1",
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.4.5",
     "ethers": "^6.11.1"
   }
 }
