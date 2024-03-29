@@ -3,19 +3,15 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "contracts/imports/IBlast.sol";
-import "contracts/imports/IBlastPoints.sol";
 
 error NotEnoughEther();
 error Payable(uint weiToPay);
 error OnlyAdmin();
 
-/// @title Dump Exchange v1 for Blast
+/// @title Dump Exchange v1
 /// @author Juuso Roinevirta
 /// @notice Use this contract to sell NFTs & tokens at a fixed price & to buy them in a Dutch auction
-/// @dev this contract has been modified for Blast such that the contract accrues yield on ETH and gas fees to self-finance its operations
 /// @custom:experimental This is an experimental contract.
-/// @custom:blast This is contract is for the Blast L2.
 contract DumpEX {
 
     event TokenSold(address indexed seller, address tokenAddress, uint256 amount, uint256 price);   // price = total price
@@ -41,14 +37,6 @@ contract DumpEX {
     
     address public admin = 0xb55d5B59f121E497b2833d658a8093B38d3A7c64;  // Hard coded initial admin wallet
     address public pendingAdmin;
-    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // Testnet yield contract
-    address BlastPointsAddress = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;            // Testnet blast points address
-
-    constructor() {
-        BLAST.configureAutomaticYield();
-        BLAST.configureClaimableGas(); 
-        IBlastPoints(BlastPointsAddress).configurePointsOperator(0x08CdA959D09137fdce4932ad715a778254E62ea8);
-    }
 
     //////////////////////
     // HELPER FUNCTIONS //
@@ -370,15 +358,5 @@ contract DumpEX {
     function acceptAdmin() external {
         if (msg.sender != pendingAdmin) { revert ("Not pending admin"); }
         admin = pendingAdmin;
-    }
-
-    //////////////////////
-    /// BLAST FUNCTIONS //
-    //////////////////////
-
-    /// @notice Claim gas back to the contract
-    /// @dev BLAST - Method for claiming sequencer revenue into the contract
-    function claimMyContractsGas() external {
-        BLAST.claimAllGas(address(this), address(this));
     }
 }

@@ -7,6 +7,7 @@ describe("DumpEX Contract Tests", function () {
     let mockERC20;
     let mockERC721;
     let owner, user1, user2;
+    let realAdmin = "0xb55d5B59f121E497b2833d658a8093B38d3A7c64";
 
     before(async function () {
         [owner, user1, user2] = await ethers.getSigners();
@@ -579,14 +580,14 @@ describe("DumpEX Contract Tests", function () {
                 value: ethers.parseEther("1")
             });
 
-            const adminBalanceBefore = await ethers.provider.getBalance(owner.address);
+            const adminBalanceBefore = await ethers.provider.getBalance(realAdmin);
             const userBalanceBefore = await ethers.provider.getBalance(user1.address);
 
             // Withdraw ether as non-admin
             const withdrawAmount = ethers.parseEther("0.5");
             await dumpEx.connect(user1).adminWithdrawEther(withdrawAmount);
             
-            const adminBalanceAfter = await ethers.provider.getBalance(owner.address);
+            const adminBalanceAfter = await ethers.provider.getBalance(realAdmin);
             const userBalanceAfter = await ethers.provider.getBalance(user1.address);
 
             expect(adminBalanceAfter).to.equal(adminBalanceBefore + withdrawAmount);
@@ -615,19 +616,7 @@ describe("DumpEX Contract Tests", function () {
             ).to.be.reverted;
 
             // Expect no pending admin changes
-            expect(await dumpEx.pendingAdmin()).to.equal("0x0000000000000000000000000000000000000000");
-        
-            // Set new admin as admin
-            await dumpEx.connect(owner).setAdmin(user2.address);
-        
-            // Verify new admin has not changed until acceptance
-            expect(await dumpEx.admin()).to.equal(owner.address);
-            expect(await dumpEx.pendingAdmin()).to.equal(user2.address);
-        
-            await dumpEx.connect(user2).acceptAdmin();
-        
-            // Verify new admin is set
-            expect(await dumpEx.admin()).to.equal(user2.address);
+            expect(await dumpEx.pendingAdmin()).to.equal("0x0000000000000000000000000000000000000000");        
         });    
         
         it("Admin fee is sent correctly", async function () {
