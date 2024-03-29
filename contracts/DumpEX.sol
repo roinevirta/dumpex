@@ -41,8 +41,8 @@ contract DumpEX {
     
     address public admin = 0xb55d5B59f121E497b2833d658a8093B38d3A7c64;  // Hard coded initial admin wallet
     address public pendingAdmin;
-    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // Testnet yield contract
-    address BlastPointsAddress = 0x2fc95838c71e76ec69ff817983BFf17c710F34E0;            // Testnet blast points address
+    IBlast public constant BLAST = IBlast(0x4300000000000000000000000000000000000002);  // Mainnet yield contract
+    address BlastPointsAddress = 0x2536FE9ab3F511540F2f9e2eC2A805005C3Dd800;            // Mainnet blast points address
 
     constructor() {
         BLAST.configureAutomaticYield();
